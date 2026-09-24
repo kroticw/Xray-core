@@ -134,6 +134,7 @@ func (tun *netTun) Read(buf [][]byte, sizes []int, offset int) (int, error) {
 	}
 
 	n, err := view.Read(buf[0][offset:])
+	view.Release()
 	if err != nil {
 		return 0, err
 	}
@@ -173,6 +174,7 @@ func (tun *netTun) WriteNotify() {
 	select {
 	case tun.incomingPacket <- view:
 	case <-tun.closed:
+		view.Release()
 	}
 }
 
