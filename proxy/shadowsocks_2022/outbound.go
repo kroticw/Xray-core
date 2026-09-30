@@ -17,6 +17,8 @@ import (
 	"github.com/xtls/xray-core/common/session"
 	"github.com/xtls/xray-core/common/signal"
 	"github.com/xtls/xray-core/common/singbridge"
+	"github.com/xtls/xray-core/core"
+	"github.com/xtls/xray-core/features/policy"
 	"github.com/xtls/xray-core/transport"
 	"github.com/xtls/xray-core/transport/internet"
 )
@@ -28,14 +30,17 @@ func init() {
 }
 
 type Outbound struct {
-	ctx    context.Context
-	server net.Destination
-	method shadowsocks.Method
+	ctx           context.Context
+	server        net.Destination
+	method        shadowsocks.Method
+	policyManager policy.Manager
 }
 
 func NewClient(ctx context.Context, config *ClientConfig) (*Outbound, error) {
+	v := core.MustFromContext(ctx)
 	o := &Outbound{
-		ctx: ctx,
+		ctx:           ctx,
+		policyManager: v.GetFeature(policy.ManagerType()).(policy.Manager),
 		server: net.Destination{
 			Address: config.Address.AsAddress(),
 			Port:    net.Port(config.Port),
@@ -137,7 +142,7 @@ func (o *Outbound) Process(ctx context.Context, link *transport.Link, dialer int
 				Dest:   destination,
 				T: signal.CancelAfterInactivity(ctx, func() {
 					common.Interrupt(link.Reader)
-				}, 300*time.Second),
+				}, o.policyManager.ForLevel(0).Timeouts.ConnectionIdle),
 			}
 		}
 
