@@ -379,7 +379,7 @@ func (s *Server) HandleConnection(conn net.Conn, dest net.Destination) {
 	errors.LogInfo(ctx, "processing from ", source, " to ", dest)
 
 	link := &transport.Link{
-		Reader: &buf.TimeoutWrapperReader{Reader: buf.NewReader(conn)},
+		Reader: newConnReader(conn),
 		Writer: buf.NewWriter(conn),
 	}
 	if err := s.dispatcher.DispatchLink(ctx, dest, link); err != nil {
@@ -396,4 +396,24 @@ func ParseKey(str string) (*[32]byte, error) {
 		return nil, errors.New("len(slice) != 32")
 	}
 	return (*[32]byte)(slice), nil
+}
+
+// connReader is the link reader for one flow from a peer. Interrupting it closes
+// the flow: outbounds end idle sessions that way, and otherwise a read blocked
+// on the flow would keep the session and its goroutines alive forever.
+type connReader struct {
+	*buf.TimeoutWrapperReader
+	conn net.Conn
+}
+
+func newConnReader(conn net.Conn) buf.Reader {
+	return &connReader{
+		TimeoutWrapperReader: &buf.TimeoutWrapperReader{Reader: buf.NewReader(conn)},
+		conn:                 conn,
+	}
+}
+
+// Interrupt implements common.Interruptible.
+func (r *connReader) Interrupt() {
+	r.conn.Close()
 }

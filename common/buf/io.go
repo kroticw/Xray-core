@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/features/stats"
 	"github.com/xtls/xray-core/transport/internet/stat"
@@ -50,6 +51,12 @@ func (r *TimeoutWrapperReader) ReadMultiBuffer() (MultiBuffer, error) {
 		r.Counter.Add(int64(r.mb.Len()))
 	}
 	return r.mb, r.err
+}
+
+// Interrupt passes the interrupt on to the wrapped reader, so outbounds can still
+// end a session whose link reader was wrapped for sniffing.
+func (r *TimeoutWrapperReader) Interrupt() {
+	common.Interrupt(r.Reader)
 }
 
 func (r *TimeoutWrapperReader) ReadMultiBufferTimeout(duration time.Duration) (MultiBuffer, error) {

@@ -5,6 +5,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/xtls/xray-core/common"
 	. "github.com/xtls/xray-core/common/buf"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/testing/servers/tcp"
@@ -46,5 +47,18 @@ func TestWriterCreation(t *testing.T) {
 		if _, ok := writer.(*SequentialWriter); !ok {
 			t.Fatal("writer is not a SequentialWriter")
 		}
+	}
+}
+
+type interruptRecorder struct{ interrupted bool }
+
+func (r *interruptRecorder) ReadMultiBuffer() (MultiBuffer, error) { return nil, io.EOF }
+func (r *interruptRecorder) Interrupt()                            { r.interrupted = true }
+
+func TestTimeoutWrapperReaderInterrupt(t *testing.T) {
+	inner := &interruptRecorder{}
+	common.Interrupt(&TimeoutWrapperReader{Reader: inner})
+	if !inner.interrupted {
+		t.Fatal("interrupt did not reach the wrapped reader")
 	}
 }
